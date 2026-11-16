@@ -21,13 +21,14 @@ h1 { font: 600 30px/1.15 Newsreader, Georgia, serif; margin: 0 0 6px; text-wrap:
 .lede { color: var(--muted); margin: 0 0 24px; max-width: 62ch; }
 .arrow { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 10px; border-top: 2px solid var(--line); padding-top: 10px; font-size: 12px; color: var(--muted); }
 .stage { display: flex; justify-content: center; align-items: center; padding: 18px 0 8px; }
-.circle { --d: clamp(210px, 32vw, 300px); width: var(--d); height: var(--d); flex: none; border-radius: 50%; border: 2px solid transparent; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 30px; cursor: pointer; color: var(--fg); font: inherit; transition: transform .2s ease, box-shadow .2s ease; }
+.circle { --d: clamp(210px, 32vw, 300px); position: relative; width: var(--d); height: var(--d); flex: none; border-radius: 50%; border: 2px solid transparent; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 30px; cursor: pointer; color: var(--fg); font: inherit; transition: transform .2s ease, box-shadow .2s ease; }
 .circle + .circle { margin-left: calc(var(--d) * -0.2); }
 .circle:hover { transform: translateY(-2px); }
 .circle:focus-visible { outline: 3px solid var(--fg); outline-offset: 4px; }
 .circle .t { font: 600 17px/1.25 Newsreader, Georgia, serif; text-wrap: balance; }
 .circle .more { margin-top: 12px; font-size: 12px; font-weight: 500; color: #fff; background: color-mix(in srgb, var(--c) 72%, #000); border: 0; border-radius: 999px; padding: 6px 14px; }
-.circle .cnt { font-size: 11px; color: var(--muted); margin-top: 8px; min-height: 1em; }
+.circle .dot { position: absolute; width: 12px; height: 12px; border-radius: 50%; background: color-mix(in srgb, var(--c) 72%, #000); border: 2px solid var(--surface); transform: translate(-50%, -50%); box-shadow: 0 0 0 1px var(--fg); cursor: default; }
+.circle .dot:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
 .circle.everyday { --c: var(--everyday); background: color-mix(in srgb, var(--everyday) 24%, transparent); border-color: var(--everyday); }
 .circle.public { --c: var(--public); background: color-mix(in srgb, var(--public) 24%, transparent); border-color: var(--public); }
 .circle.care { --c: var(--care); background: color-mix(in srgb, var(--care) 24%, transparent); border-color: var(--care); }
@@ -83,9 +84,9 @@ h1 { font: 600 30px/1.15 Newsreader, Georgia, serif; margin: 0 0 6px; text-wrap:
   <p class="lede">Figure taken from Sajnani et al. (2026), Figure 1.</p>
 
   <div class="stage" role="group" aria-label="Three broad categories">
-    <button class="circle everyday" data-group="everyday" aria-expanded="false"><span class="t">Everyday individual and community arts engagement</span><span class="more">Read more</span><span class="cnt"></span></button>
-    <button class="circle public" data-group="public" aria-expanded="false"><span class="t">Arts engagement for public health</span><span class="more">Read more</span><span class="cnt"></span></button>
-    <button class="circle care" data-group="care" aria-expanded="false"><span class="t">Arts engagement for health care</span><span class="more">Read more</span><span class="cnt"></span></button>
+    <button class="circle everyday" data-group="everyday" aria-expanded="false"><span class="t">Everyday individual and community arts engagement</span><span class="more">Read more</span></button>
+    <button class="circle public" data-group="public" aria-expanded="false"><span class="t">Arts engagement for public health</span><span class="more">Read more</span></button>
+    <button class="circle care" data-group="care" aria-expanded="false"><span class="t">Arts engagement for health care</span><span class="more">Read more</span></button>
   </div>
 
   <section class="panel" id="panel" hidden aria-live="polite">
@@ -201,8 +202,19 @@ function update() {
     const on = k === group;
     c.setAttribute('aria-expanded', String(on));
     c.querySelector('.more').textContent = on ? 'Close' : 'Read more';
-    const n = NODES.filter(x => x.group === k).length;
-    c.querySelector('.cnt').textContent = n ? n + ' registered' : '';
+    c.querySelectorAll('.dot').forEach(d => d.remove());
+    const list = NODES.filter(x => x.group === k);
+    list.forEach((n, i) => {
+      const ang = (-90 + (360 / list.length) * i + 180 / (list.length || 1)) * Math.PI / 180;
+      const dot = document.createElement('span');
+      dot.className = 'dot';
+      dot.setAttribute('role', 'img');
+      dot.setAttribute('aria-label', n.name + (n.org ? ', ' + n.org : '') + ' (' + (n.kind || 'registered') + ')');
+      dot.title = n.name + (n.org ? ', ' + n.org : '') + ' · ' + (n.kind || '');
+      dot.style.left = (50 + 50 * Math.cos(ang)).toFixed(2) + '%';
+      dot.style.top = (50 + 50 * Math.sin(ang)).toFixed(2) + '%';
+      c.appendChild(dot);
+    });
   });
   document.querySelector('.stage').classList.toggle('has-sel', !!group);
   const panel = $('panel');
