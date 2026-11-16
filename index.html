@@ -106,21 +106,10 @@ h1 { font: 600 30px/1.15 Newsreader, Georgia, serif; margin: 0 0 6px; text-wrap:
 
     <div class="sec" id="register" hidden>
       <h3>Register interest in this circle</h3>
-      <form class="nodeform" id="nodeform">
-        <select id="nkind" aria-label="Type of interest">
-          <option>Register interest</option>
-          <option>I work here</option>
-          <option>I run a programme here</option>
-          <option value="Other">Other</option>
-        </select>
-        <input id="nother" type="text" placeholder="Describe your role or interest" maxlength="80" hidden>
-        <input id="nname" type="text" placeholder="Your name" maxlength="80" required>
-        <input id="norg" type="text" placeholder="Organisation (optional)" maxlength="120">
-        <input id="nemail" type="email" placeholder="Email" maxlength="120" required>
-        <button type="submit">Add</button>
-        <div class="msg" id="nmsg" role="status"></div>
-      </form>
+      <p class="draft"><a id="formLink" href="#" target="_blank" rel="noopener">Open the registration form</a></p>
+      <h3>Registered so far</h3>
       <ul class="nodelist" id="nodelist"></ul>
+      <p class="empty" id="regStatus"></p>
     </div>
   </section>
 
@@ -132,10 +121,43 @@ let group = null, mode = null, sub = null;
 const $ = (id) => document.getElementById(id);
 const countFor = (name) => STUDIES.filter(s => s.sub === name).length;
 
-const NKEY = 'arts-health-nodes-v1';
-function loadNodes() { try { return JSON.parse(localStorage.getItem(NKEY) || '[]'); } catch (e) { return []; } }
-function saveNodes(arr) { try { localStorage.setItem(NKEY, JSON.stringify(arr)); return true; } catch (e) { return false; } }
-let NODES = loadNodes();
+const PUBLIC_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS6K8M2mQSCc_8WPvKhDKYJwC5LofC-iiRq3QHKc8sL2YWO4jfBPWT4URDsLMhWNZc--WUMucBc0E1V/pub?gid=666710582&single=true&output=csv';
+const FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSei9cbx85oF-Hrek7xga8Unuf0qWztO9Os-FjtZuSMEySD4OQ/viewform';
+let NODES = [];
+let LOADED = false, LOAD_FAILED = false;
+const TITLE_TO_GROUP = {};
+Object.keys(GROUPS).forEach(k => { if (GROUPS[k].title) TITLE_TO_GROUP[GROUPS[k].title] = k; });
+
+function parseCSV(text) {
+  const rows = []; let row = [], field = '', q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) {
+      if (c === '"' && text[i+1] === '"') { field += '"'; i++; }
+      else if (c === '"') q = false;
+      else field += c;
+    } else if (c === '"') q = true;
+    else if (c === ',') { row.push(field); field = ''; }
+    else if (c === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
+    else if (c !== '\r') field += c;
+  }
+  if (field || row.length) { row.push(field); rows.push(row); }
+  return rows;
+}
+async function loadRegistrations() {
+  try {
+    const res = await fetch(PUBLIC_CSV);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const rows = parseCSV(await res.text()).slice(1);
+    NODES = rows.filter(r => r.length >= 4 && r[3]).map(r => ({
+      group: TITLE_TO_GROUP[r[0]] || null,
+      kind: r[1] === 'Other' ? (r[2] || 'Other') : r[1],
+      name: r[3], org: r[4] || ''
+    })).filter(n => n.group);
+    LOADED = true;
+  } catch (e) { LOAD_FAILED = true; }
+  update();
+}
 
 function renderEvidence() {
   const g = GROUPS[group];
@@ -165,6 +187,7 @@ function renderEvidence() {
 
 function renderNodes() {
   const ul = $('nodelist'); ul.innerHTML = '';
+  $('regStatus').textContent = LOAD_FAILED ? 'Registrations could not load right now.' : (LOADED ? '' : 'Loading registrations…');
   NODES.filter(n => n.group === group).forEach(n => {
     const li = document.createElement('li');
     li.textContent = n.kind + ': ' + n.name + (n.org ? ', ' + n.org : '');
@@ -179,7 +202,7 @@ function update() {
     c.setAttribute('aria-expanded', String(on));
     c.querySelector('.more').textContent = on ? 'Close' : 'Read more';
     const n = NODES.filter(x => x.group === k).length;
-    c.querySelector('.cnt').textContent = n ? n + (n === 1 ? ' registered' : ' registered') : '';
+    c.querySelector('.cnt').textContent = n ? n + ' registered' : '';
   });
   document.querySelector('.stage').classList.toggle('has-sel', !!group);
   const panel = $('panel');
@@ -194,7 +217,7 @@ function update() {
   $('evidence').hidden = mode !== 'explore';
   $('register').hidden = mode !== 'register';
   if (mode === 'explore') renderEvidence();
-  if (mode === 'register') renderNodes();
+  if (mode === 'register') { $('formLink').href = FORM_URL; renderNodes(); }
 }
 
 document.querySelectorAll('.circle').forEach(c => c.addEventListener('click', () => {
@@ -206,22 +229,6 @@ document.querySelectorAll('.circle').forEach(c => c.addEventListener('click', ()
 $('btnExplore').addEventListener('click', () => { mode = mode === 'explore' ? null : 'explore'; sub = null; update(); });
 $('btnRegister').addEventListener('click', () => { mode = mode === 'register' ? null : 'register'; update(); });
 
-function syncOther() { const other = $('nkind').value === 'Other'; $('nother').hidden = !other; $('nother').required = other; }
-$('nkind').addEventListener('change', syncOther);
-syncOther();
-$('nodeform').addEventListener('submit', (e) => {
-  e.preventDefault();
-  if (!group) return;
-  const kind = $('nkind').value === 'Other' ? $('nother').value.trim() : $('nkind').value;
-  const name = $('nname').value.trim();
-  const org = $('norg').value.trim();
-  const email = $('nemail').value.trim();
-  if (!kind || !name || !email) { $('nmsg').textContent = 'Please fill in the required fields.'; return; }
-  NODES.push({ group, kind, name, org, email, ts: new Date().toISOString() });
-  const ok = saveNodes(NODES);
-  ['nother','nname','norg','nemail'].forEach(id => $(id).value = '');
-  $('nmsg').textContent = ok ? 'Added.' : 'Added for this visit only; this browser would not save it.';
-  update();
-});
 update();
+loadRegistrations();
 </script>
