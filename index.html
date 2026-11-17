@@ -77,6 +77,14 @@ h1 { font: 600 30px/1.15 Newsreader, Georgia, serif; margin: 0 0 6px; text-wrap:
   .stage.has-sel .circle[aria-expanded="true"] { --d: min(250px, 72vw); flex: 0 0 var(--d); order: 2; margin: 8px auto 0; }
   .stage.has-sel .circle:not([aria-expanded="true"]) { transform: none; }
 }
+@media (max-width: 640px) {
+  .chips { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 8px; margin: 0 -22px; padding-inline: 22px; scrollbar-width: thin; }
+  .chip { flex: 0 0 auto; white-space: nowrap; }
+  .stage.has-sel .circle:not([aria-expanded="true"]) .t { font-size: 12px; }
+  .stage.has-sel .circle:not([aria-expanded="true"]) { padding: 7px 12px; }
+  .panel { padding: 18px; }
+}
+#studies { max-height: 420px; overflow-y: auto; border-top: 1px solid var(--line); margin-top: 12px; padding-right: 4px; }
 @media (prefers-reduced-motion: reduce) { .circle { transition: none; } }
 </style>
 <main>
@@ -189,7 +197,7 @@ function renderEvidence() {
 
 function renderNodes() {
   const ul = $('nodelist'); ul.innerHTML = '';
-  $('regStatus').textContent = LOAD_FAILED ? 'Registrations could not load right now.' : (LOADED ? '' : 'Loading registrations…');
+  $('regStatus').textContent = LOAD_FAILED ? 'Registrations appear on the public page.' : (LOADED ? '' : 'Loading registrations…');
   NODES.filter(n => n.group === group).forEach(n => {
     const li = document.createElement('li');
     li.textContent = n.kind + ': ' + n.name + (n.org ? ', ' + n.org : '');
